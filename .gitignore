@@ -34,6 +34,15 @@ embermug-tray
 *~
 .cache/
 
+# Nix
+result
+result-*
+.direnv/
+
+# Clang
+.clangd/
+.clang-tidy
+
 # OS
 .DS_Store
 Thumbs.db
