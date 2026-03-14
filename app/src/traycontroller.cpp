@@ -2,10 +2,14 @@
 #include "connectionmanager.h"
 #include "devicemonitor.h"
 #include <QApplication>
+#include <QBuffer>
 #include <QDebug>
+#include <QFile>
 #include <QIcon>
 #include <QPainter>
+#include <QRegularExpression>
 #include <QSvgRenderer>
+#include <cmath>
 
 TrayController::TrayController(DeviceMonitor *monitor,
                                ConnectionManager *manager, QObject *parent)
@@ -27,27 +31,27 @@ TrayController::TrayController(DeviceMonitor *monitor,
   m_batteryAction->setEnabled(false);
   m_contextMenu->addAction(m_batteryAction);
 
+  // Set target temperature submenu
+  m_targetTempMenu =
+      new QMenu(QStringLiteral("Set Target"), m_contextMenu);
+  m_targetTempMenu->setEnabled(false); // Disabled until connected
+  m_contextMenu->addMenu(m_targetTempMenu);
+
   m_contextMenu->addSeparator();
 
-  // Scan action
-  m_scanAction = new QAction(QStringLiteral("Scan for Devices"), m_contextMenu);
-  connect(m_scanAction, &QAction::triggered, m_monitor,
-          &DeviceMonitor::startMonitoring);
-  m_contextMenu->addAction(m_scanAction);
-
-  // Devices submenu
-  m_devicesMenu = new QMenu(QStringLiteral("Connect to Device"), m_contextMenu);
-  m_devicesMenu->setEnabled(false);
+  // Devices submenu - always titled "Switch Device"
+  m_devicesMenu = new QMenu(QStringLiteral("Switch Device"), m_contextMenu);
   m_contextMenu->addMenu(m_devicesMenu);
 
-  m_contextMenu->addSeparator();
+  // Start scanning when menu opens, stop when it closes
+  connect(m_contextMenu, &QMenu::aboutToShow, this, [this]() {
+    m_monitor->startMonitoring();
+  });
+  connect(m_contextMenu, &QMenu::aboutToHide, this, [this]() {
+    m_monitor->stopMonitoring();
+  });
 
-  // Disconnect action
-  m_disconnectAction = new QAction(QStringLiteral("Disconnect"), m_contextMenu);
-  m_disconnectAction->setEnabled(false);
-  connect(m_disconnectAction, &QAction::triggered, m_manager,
-          &ConnectionManager::disconnect);
-  m_contextMenu->addAction(m_disconnectAction);
+  m_contextMenu->addSeparator();
 
   // Quit action
   m_quitAction = new QAction(QStringLiteral("Quit"), m_contextMenu);
@@ -56,12 +60,8 @@ TrayController::TrayController(DeviceMonitor *monitor,
 
   m_trayIcon->setContextMenu(m_contextMenu);
 
-  QSvgRenderer renderer(QStringLiteral(":/coffee.svg"));
-  QPixmap pixmap(22, 22);
-  pixmap.fill(Qt::transparent);
-  QPainter painter(&pixmap);
-  renderer.render(&painter);
-  m_trayIcon->setIcon(QIcon(pixmap));
+  initIconCache();
+  updateTrayIcon();
 
   // Connect monitor signals
   connect(m_monitor, &DeviceMonitor::devicesChanged, this,
@@ -95,26 +95,55 @@ void TrayController::show() {
   m_trayIcon->setVisible(true);
   updateTrayTooltip();
 
-  // Start monitoring for devices
+  // Load device preferences from settings
+  m_preferredAddress = m_settings.value(QStringLiteral("device.address")).toString();
+  m_preferredName = m_settings.value(QStringLiteral("device.name")).toString();
+
+  // Start scanning for devices
   m_monitor->startMonitoring();
 }
 
-void TrayController::onDevicesChanged() { rebuildDeviceMenu(); }
-
-void TrayController::onScanStarted() {
-  m_scanAction->setText(QStringLiteral("Scanning..."));
-  m_scanAction->setEnabled(false);
-}
-
-void TrayController::onScanFinished() {
-  m_scanAction->setText(QStringLiteral("Scan for Devices"));
-  m_scanAction->setEnabled(true);
+void TrayController::onDevicesChanged() {
   rebuildDeviceMenu();
+
+  // Don't change connection if already connected or connecting
+  if (m_manager->isConnected() || m_manager->isConnecting()) {
+    return;
+  }
+
+  QList<QBluetoothDeviceInfo> mugs = m_monitor->availableDevices();
+
+  // Priority 1: Check for preferred address
+  if (!m_preferredAddress.isEmpty()) {
+    auto device = m_monitor->findByAddress(QBluetoothAddress(m_preferredAddress));
+    if (device) {
+      m_manager->connectToDevice(*device);
+      return;
+    }
+  }
+
+  // Priority 2: Check for preferred name
+  if (!m_preferredName.isEmpty()) {
+    auto device = m_monitor->findByName(m_preferredName);
+    if (device) {
+      m_manager->connectToDevice(*device);
+      return;
+    }
+  }
+
+  // Priority 3: First valid Ember mug
+  if (!mugs.isEmpty()) {
+    m_manager->connectToDevice(mugs.first());
+  }
+  // Else: stay disconnected
 }
+
+void TrayController::onScanStarted() { rebuildDeviceMenu(); }
+
+void TrayController::onScanFinished() { rebuildDeviceMenu(); }
 
 void TrayController::onConnecting() {
   m_statusAction->setText(QStringLiteral("Status: Connecting..."));
-  m_devicesMenu->setEnabled(false);
 }
 
 void TrayController::onConnected() {
@@ -125,10 +154,11 @@ void TrayController::onDisconnected() {
   m_statusAction->setText(QStringLiteral("Status: Not connected"));
   m_tempAction->setText(QStringLiteral("Temp: --"));
   m_batteryAction->setText(QStringLiteral("Battery: --"));
-  m_disconnectAction->setEnabled(false);
+  m_targetTempMenu->setEnabled(false);
   m_refreshTimer.stop();
   rebuildDeviceMenu();
   updateTrayTooltip();
+  updateTrayIcon();
 }
 
 void TrayController::onMugReady() {
@@ -141,12 +171,17 @@ void TrayController::onMugReady() {
     name = QStringLiteral("Ember Mug");
   }
   m_statusAction->setText(QStringLiteral("Status: Connected to %1").arg(name));
-  m_disconnectAction->setEnabled(true);
 
   connect(mug, &Ember::Mug::stateUpdated, this,
           &TrayController::onMugStateUpdated);
 
+  // Enable target temp menu and build presets
+  m_targetTempMenu->setEnabled(true);
+  rebuildTargetTempMenu();
+
   updateMugDisplay();
+  updateTrayIcon();
+  rebuildDeviceMenu();
   m_refreshTimer.start();
 }
 
@@ -156,7 +191,10 @@ void TrayController::onConnectionFailed(const QString &error) {
   rebuildDeviceMenu();
 }
 
-void TrayController::onMugStateUpdated() { updateMugDisplay(); }
+void TrayController::onMugStateUpdated() {
+  updateMugDisplay();
+  rebuildTargetTempMenu();
+}
 
 void TrayController::onRefreshTimer() {
   Ember::Mug *mug = m_manager->mug();
@@ -170,16 +208,46 @@ void TrayController::rebuildDeviceMenu() {
 
   QList<QBluetoothDeviceInfo> devices = m_monitor->availableDevices();
 
-  if (devices.isEmpty()) {
-    m_devicesMenu->setTitle(QStringLiteral("No devices found"));
-    m_devicesMenu->setEnabled(false);
+  if (m_monitor->isScanning()) {
+    auto *placeholder =
+        m_devicesMenu->addAction(QStringLiteral("Looking for nearby mugs..."));
+    placeholder->setEnabled(false);
+
+    // Also show any devices found so far
+    for (const auto &device : devices) {
+      QString displayName = device.name();
+      if (displayName.isEmpty()) {
+        displayName = device.address().toString();
+      }
+
+      QAction *action = m_devicesMenu->addAction(displayName);
+      action->setCheckable(true);
+
+      // Mark currently connected device
+      if (m_manager->isConnected() &&
+          m_manager->connectedDevice().address() == device.address()) {
+        action->setChecked(true);
+      }
+
+      connect(action, &QAction::triggered, this,
+              [this, device]() {
+                // Save device preference and connect
+                m_settings.setValue(QStringLiteral("device.address"),
+                                    device.address().toString());
+                m_preferredAddress = device.address().toString();
+                m_manager->disconnect();
+                m_manager->connectToDevice(device);
+              });
+    }
     return;
   }
 
-  m_devicesMenu->setTitle(
-      QStringLiteral("Connect (%1 found)").arg(devices.size()));
-  m_devicesMenu->setEnabled(!m_manager->isConnected() &&
-                            !m_manager->isConnecting());
+  if (devices.isEmpty()) {
+    auto *placeholder =
+        m_devicesMenu->addAction(QStringLiteral("No ember mugs found"));
+    placeholder->setEnabled(false);
+    return;
+  }
 
   for (const auto &device : devices) {
     QString displayName = device.name();
@@ -188,8 +256,23 @@ void TrayController::rebuildDeviceMenu() {
     }
 
     QAction *action = m_devicesMenu->addAction(displayName);
+    action->setCheckable(true);
+
+    // Mark currently connected device
+    if (m_manager->isConnected() &&
+        m_manager->connectedDevice().address() == device.address()) {
+      action->setChecked(true);
+    }
+
     connect(action, &QAction::triggered, this,
-            [this, device]() { m_manager->connectToDevice(device); });
+            [this, device]() {
+              // Save device preference and connect
+              m_settings.setValue(QStringLiteral("device.address"),
+                                  device.address().toString());
+              m_preferredAddress = device.address().toString();
+              m_manager->disconnect();
+              m_manager->connectToDevice(device);
+            });
   }
 }
 
@@ -218,6 +301,7 @@ void TrayController::updateMugDisplay() {
           .arg(Ember::batteryStateToString(mug->batteryState())));
 
   updateTrayTooltip();
+  updateTrayIcon();
 }
 
 void TrayController::updateTrayTooltip() {
@@ -246,10 +330,141 @@ void TrayController::updateTrayTooltip() {
                    .arg(mug->batteryLevel())
                    .arg(Ember::batteryStateToString(mug->batteryState()));
   } else {
-    tooltip += QStringLiteral("Status: Not connected\n");
-    tooltip +=
-        QStringLiteral("Click 'Scan for Devices' to find your Ember Mug");
+    tooltip += QStringLiteral("Status: Not connected");
   }
 
   m_trayIcon->setToolTip(tooltip);
+}
+
+void TrayController::rebuildTargetTempMenu() {
+  m_targetTempMenu->clear();
+
+  Ember::Mug *mug = m_manager->mug();
+  if (!mug || !mug->isReady())
+    return;
+
+  // Temperature presets: name, celsius value, fahrenheit value
+  struct TempPreset {
+    const char *name;
+    float celsius;
+    int fahrenheit;
+  };
+
+  static const TempPreset presets[] = {
+      {"Extra Hot", 62.5f, 145},
+      {"Coffee", 57.0f, 135},
+      {"Tea", 54.0f, 130},
+      {"Warm", 51.0f, 124},
+  };
+
+  float currentTarget = mug->targetTemp();
+
+  for (const auto &preset : presets) {
+    QString label = QStringLiteral("%1 (%2 \u00B0C / %3 \u00B0F)")
+                        .arg(QString::fromLatin1(preset.name))
+                        .arg(preset.celsius, 0, 'f', 1)
+                        .arg(preset.fahrenheit);
+
+    QAction *action = m_targetTempMenu->addAction(label);
+    action->setCheckable(true);
+
+    // Check if this preset matches current target (within 0.5°C tolerance)
+    if (std::fabs(currentTarget - preset.celsius) < 0.5f) {
+      action->setChecked(true);
+    }
+
+    float presetCelsius = preset.celsius;
+    connect(action, &QAction::triggered, this, [this, presetCelsius]() {
+      Ember::Mug *mug = m_manager->mug();
+      if (mug && mug->isReady()) {
+        mug->setTargetTemperature(presetCelsius);
+      }
+    });
+  }
+}
+
+QIcon TrayController::renderIcon(const QColor &mugColor,
+                                 const QColor &plateColor) {
+  QFile file(QStringLiteral(":/coffee.svg"));
+  if (!file.open(QIODevice::ReadOnly)) {
+    qWarning() << "Failed to open coffee.svg";
+    return QIcon();
+  }
+  QString svgContent = QString::fromUtf8(file.readAll());
+  file.close();
+
+  // Replace fill colors for mug and plate paths
+  static QRegularExpression mugFillRe(
+      QStringLiteral(R"((<path[^>]*id="mug"[^>]*fill=")#[0-9a-fA-F]{6}("))"));
+  static QRegularExpression plateFillRe(
+      QStringLiteral(R"((<path[^>]*id="plate"[^>]*fill=")#[0-9a-fA-F]{6}("))"));
+
+  svgContent.replace(mugFillRe,
+                     QStringLiteral("\\1%1\\2").arg(mugColor.name()));
+  svgContent.replace(plateFillRe,
+                     QStringLiteral("\\1%1\\2").arg(plateColor.name()));
+
+  QByteArray svgData = svgContent.toUtf8();
+  QSvgRenderer renderer(svgData);
+
+  QPixmap pixmap(22, 22);
+  pixmap.fill(Qt::transparent);
+  QPainter painter(&pixmap);
+  renderer.render(&painter);
+
+  return QIcon(pixmap);
+}
+
+void TrayController::initIconCache() {
+  const QColor mugColors[] = {
+      QColor(QStringLiteral("#e8e8e8")), // Normal
+      QColor(QStringLiteral("#ff8844"))  // LowBattery
+  };
+  const QColor plateColors[] = {
+      QColor(QStringLiteral("#888888")), // Gray
+      QColor(QStringLiteral("#ff4444")), // Red (heating)
+      QColor(QStringLiteral("#44cc44")), // Green (at temp)
+      QColor(QStringLiteral("#4488ff"))  // Blue (cold)
+  };
+
+  for (int m = 0; m < 2; ++m) {
+    for (int p = 0; p < 4; ++p) {
+      m_iconCache[m][p] = renderIcon(mugColors[m], plateColors[p]);
+    }
+  }
+}
+
+void TrayController::updateTrayIcon() {
+  MugState mugState = MugState::Normal;
+  PlateState plateState = PlateState::Gray;
+
+  Ember::Mug *mug = m_manager->mug();
+  if (mug && mug->isReady()) {
+    // Battery state
+    if (mug->batteryLevel() < 20) {
+      mugState = MugState::LowBattery;
+    }
+
+    // Plate state based on liquid state
+    switch (mug->liquidState()) {
+    case Ember::LiquidState::Empty:
+    case Ember::LiquidState::Unknown:
+      plateState = PlateState::Gray;
+      break;
+    case Ember::LiquidState::Heating:
+      plateState = PlateState::Red;
+      break;
+    case Ember::LiquidState::AtTarget:
+      plateState = PlateState::Green;
+      break;
+    case Ember::LiquidState::Filling:
+    case Ember::LiquidState::Cold:
+    case Ember::LiquidState::Cooling:
+      plateState = PlateState::Blue;
+      break;
+    }
+  }
+
+  m_trayIcon->setIcon(
+      m_iconCache[static_cast<int>(mugState)][static_cast<int>(plateState)]);
 }

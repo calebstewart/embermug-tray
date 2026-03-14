@@ -43,6 +43,24 @@ QList<QBluetoothDeviceInfo> DeviceMonitor::availableDevices() const {
 
 bool DeviceMonitor::isScanning() const { return m_discoveryAgent->isActive(); }
 
+std::optional<QBluetoothDeviceInfo> DeviceMonitor::findByAddress(const QBluetoothAddress &addr) const {
+  for (const auto &device : m_availableDevices) {
+    if (device.address() == addr) {
+      return device;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<QBluetoothDeviceInfo> DeviceMonitor::findByName(const QString &name) const {
+  for (const auto &device : m_availableDevices) {
+    if (device.name() == name) {
+      return device;
+    }
+  }
+  return std::nullopt;
+}
+
 void DeviceMonitor::performScan() {
   if (m_discoveryAgent->isActive()) {
     return;

@@ -8,12 +8,15 @@ namespace Ember {
 // Temperature unit enum
 enum class TempUnit { Celsius = 0x00, Fahrenheit = 0x01 };
 
-// Liquid state enum
+// Liquid state enum (matches Ember Mug BLE values)
 enum class LiquidState {
   Unknown = 0x00,
   Empty = 0x01,
-  Half = 0x02,
-  Full = 0x03
+  Filling = 0x02,
+  Cold = 0x03,
+  Cooling = 0x04,
+  Heating = 0x05,
+  AtTarget = 0x06
 };
 
 // Mug event enum
@@ -60,10 +63,16 @@ inline QString liquidStateToString(LiquidState state) {
   switch (state) {
   case LiquidState::Empty:
     return QStringLiteral("Empty");
-  case LiquidState::Half:
-    return QStringLiteral("Half");
-  case LiquidState::Full:
-    return QStringLiteral("Full");
+  case LiquidState::Filling:
+    return QStringLiteral("Filling");
+  case LiquidState::Cold:
+    return QStringLiteral("Cold");
+  case LiquidState::Cooling:
+    return QStringLiteral("Cooling");
+  case LiquidState::Heating:
+    return QStringLiteral("Heating");
+  case LiquidState::AtTarget:
+    return QStringLiteral("At Target");
   default:
     return QStringLiteral("Unknown");
   }

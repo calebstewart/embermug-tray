@@ -2,6 +2,7 @@
 #define EMBER_SERVICE_H
 
 #include <QBluetoothUuid>
+#include <QLowEnergyCharacteristic>
 #include <QLowEnergyController>
 #include <QLowEnergyService>
 #include <QObject>
@@ -15,30 +16,48 @@ public:
   explicit Service(QLowEnergyController *controller, QObject *parent = nullptr);
   ~Service();
 
-  // Initialize service discovery
   void initialize();
-
-  // Service state
   bool isReady() const;
 
-  // Operations
-  bool writeCommand(const QByteArray &data);
+  // Read operations
+  void readMugName();
+  void readCurrentTemp();
+  void readTargetTemp();
+  void readTempUnit();
+  void readBattery();
+  void readLiquidState();
+
+  // Write operations
+  void writeTargetTemp(quint16 tempCelsiusTimes100);
+  void writeTempUnit(quint8 unit);
 
 signals:
   void ready();
   void error(const QString &message);
-  void dataReceived(const QByteArray &data);
+
+  // Data received signals
+  void mugNameReceived(const QString &name);
+  void currentTempReceived(float tempCelsius);
+  void targetTempReceived(float tempCelsius);
+  void tempUnitReceived(quint8 unit);
+  void batteryReceived(int level, bool charging);
+  void liquidStateReceived(quint8 state);
+  void pushEventReceived(quint8 event);
 
 private slots:
   void onServiceDiscovered(const QBluetoothUuid &uuid);
   void onServiceDiscoveryFinished();
   void onServiceStateChanged(QLowEnergyService::ServiceState newState);
+  void onCharacteristicRead(const QLowEnergyCharacteristic &charInfo,
+                            const QByteArray &value);
   void onCharacteristicChanged(const QLowEnergyCharacteristic &charInfo,
                                const QByteArray &value);
   void onServiceError(QLowEnergyService::ServiceError error);
 
 private:
   void setupNotifications();
+  void readAllCharacteristics();
+  QLowEnergyCharacteristic findCharacteristic(const char *uuid);
 
   QLowEnergyController *m_controller;
   QLowEnergyService *m_service = nullptr;

@@ -69,12 +69,15 @@ signals:
 private slots:
   void onServiceReady();
   void onServiceError(const QString &error);
-  void onDataReceived(const QByteArray &data);
+  void onMugNameReceived(const QString &name);
+  void onCurrentTempReceived(float tempCelsius);
+  void onTargetTempReceived(float tempCelsius);
+  void onTempUnitReceived(quint8 unit);
+  void onBatteryReceived(int level, bool charging);
+  void onLiquidStateReceived(quint8 state);
+  void onPushEventReceived(quint8 event);
 
 private:
-  void handleResponse(const QByteArray &data);
-  void sendCommand(const QByteArray &command);
-
   QLowEnergyController *m_controller;
   Service *m_service;
 

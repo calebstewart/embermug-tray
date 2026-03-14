@@ -7,7 +7,8 @@
 
 int main(int argc, char *argv[]) {
   QApplication app(argc, argv);
-  app.setApplicationName(QStringLiteral("embermug-tray"));
+  app.setOrganizationName(QStringLiteral("embermug"));
+  app.setApplicationName(QStringLiteral("tray"));
   app.setApplicationVersion(QStringLiteral("0.2.0"));
   app.setQuitOnLastWindowClosed(false);
 

@@ -1,5 +1,7 @@
 #include "connectionmanager.h"
+#include <QBluetoothAddress>
 #include <QDebug>
+#include <QSettings>
 
 ConnectionManager::ConnectionManager(QObject *parent) : QObject(parent) {}
 
@@ -12,6 +14,7 @@ void ConnectionManager::connectToDevice(const QBluetoothDeviceInfo &device) {
   }
 
   m_connecting = true;
+  m_currentDevice = device;
   emit connecting();
 
   m_controller = QLowEnergyController::createCentral(device, this);
@@ -49,6 +52,10 @@ bool ConnectionManager::isConnected() const {
 bool ConnectionManager::isConnecting() const { return m_connecting; }
 
 Ember::Mug *ConnectionManager::mug() const { return m_mug; }
+
+QBluetoothDeviceInfo ConnectionManager::connectedDevice() const {
+  return m_currentDevice;
+}
 
 void ConnectionManager::onControllerConnected() {
   qInfo() << "BLE controller connected";

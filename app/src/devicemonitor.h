@@ -7,6 +7,7 @@
 #include <QObject>
 #include <QTimer>
 #include <ember/mug.h>
+#include <optional>
 
 class DeviceMonitor : public QObject {
   Q_OBJECT
@@ -20,6 +21,9 @@ public:
 
   QList<QBluetoothDeviceInfo> availableDevices() const;
   bool isScanning() const;
+
+  std::optional<QBluetoothDeviceInfo> findByAddress(const QBluetoothAddress &addr) const;
+  std::optional<QBluetoothDeviceInfo> findByName(const QString &name) const;
 
 signals:
   void devicesChanged();

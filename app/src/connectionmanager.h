@@ -4,6 +4,7 @@
 #include <QBluetoothDeviceInfo>
 #include <QLowEnergyController>
 #include <QObject>
+#include <QSettings>
 #include <ember/mug.h>
 
 class ConnectionManager : public QObject {
@@ -19,6 +20,7 @@ public:
   bool isConnected() const;
   bool isConnecting() const;
   Ember::Mug *mug() const;
+  QBluetoothDeviceInfo connectedDevice() const;
 
 signals:
   void connecting();
@@ -39,6 +41,7 @@ private:
 
   QLowEnergyController *m_controller = nullptr;
   Ember::Mug *m_mug = nullptr;
+  QBluetoothDeviceInfo m_currentDevice;
   bool m_connecting = false;
 };
 

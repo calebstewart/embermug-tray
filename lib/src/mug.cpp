@@ -1,5 +1,4 @@
 #include "constants.h"
-#include "protocol.h"
 #include "service.h"
 #include <QDebug>
 #include <ember/mug.h>
@@ -22,7 +21,17 @@ Mug::Mug(QLowEnergyController *controller, QObject *parent)
       m_service(new Service(controller, this)) {
   connect(m_service, &Service::ready, this, &Mug::onServiceReady);
   connect(m_service, &Service::error, this, &Mug::onServiceError);
-  connect(m_service, &Service::dataReceived, this, &Mug::onDataReceived);
+  connect(m_service, &Service::mugNameReceived, this, &Mug::onMugNameReceived);
+  connect(m_service, &Service::currentTempReceived, this,
+          &Mug::onCurrentTempReceived);
+  connect(m_service, &Service::targetTempReceived, this,
+          &Mug::onTargetTempReceived);
+  connect(m_service, &Service::tempUnitReceived, this, &Mug::onTempUnitReceived);
+  connect(m_service, &Service::batteryReceived, this, &Mug::onBatteryReceived);
+  connect(m_service, &Service::liquidStateReceived, this,
+          &Mug::onLiquidStateReceived);
+  connect(m_service, &Service::pushEventReceived, this,
+          &Mug::onPushEventReceived);
 }
 
 Mug::~Mug() {}
@@ -61,29 +70,42 @@ bool Mug::isHeating() const { return m_isHeating; }
 QString Mug::name() const { return m_name; }
 
 void Mug::setTargetTemperature(float celsius) {
+  if (!m_service || !m_service->isReady()) {
+    qWarning() << "Cannot set target temperature: service not ready";
+    return;
+  }
+
   float temp = qBound(Constants::MIN_TEMPERATURE_C, celsius,
                       Constants::MAX_TEMPERATURE_C);
-  QByteArray command = Protocol::setTemperature(temp);
-  sendCommand(command);
+  quint16 tempValue = static_cast<quint16>(temp * 100);
+  m_service->writeTargetTemp(tempValue);
 }
 
 void Mug::setTemperatureUnit(TempUnit unit) {
-  QByteArray command = Protocol::setTempUnit(unit);
-  sendCommand(command);
+  if (!m_service || !m_service->isReady()) {
+    qWarning() << "Cannot set temperature unit: service not ready";
+    return;
+  }
+
+  m_service->writeTempUnit(static_cast<quint8>(unit));
 }
 
 void Mug::refresh() {
-  QByteArray command = Protocol::getMugState();
-  sendCommand(command);
+  if (!m_service || !m_service->isReady()) {
+    qWarning() << "Cannot refresh: service not ready";
+    return;
+  }
+
+  m_service->readCurrentTemp();
+  m_service->readTargetTemp();
+  m_service->readBattery();
+  m_service->readLiquidState();
 }
 
 void Mug::onServiceReady() {
   qInfo() << "Mug service ready";
   m_ready = true;
   emit readyChanged();
-
-  // Request initial state
-  refresh();
 }
 
 void Mug::onServiceError(const QString &errorMsg) {
@@ -91,75 +113,101 @@ void Mug::onServiceError(const QString &errorMsg) {
   emit error(errorMsg);
 }
 
-void Mug::onDataReceived(const QByteArray &data) { handleResponse(data); }
-
-void Mug::sendCommand(const QByteArray &command) {
-  if (!m_service || !m_service->isReady()) {
-    qWarning() << "Cannot send command: service not ready";
-    return;
+void Mug::onMugNameReceived(const QString &name) {
+  if (m_name != name) {
+    m_name = name;
+    emit nameChanged();
+    emit stateUpdated();
   }
-
-  m_service->writeCommand(command);
 }
 
-void Mug::handleResponse(const QByteArray &data) {
-  auto response = Protocol::parseResponse(data);
+void Mug::onCurrentTempReceived(float tempCelsius) {
+  if (!qFuzzyCompare(m_currentTemp, tempCelsius)) {
+    m_currentTemp = tempCelsius;
+    emit currentTempChanged();
+    emit stateUpdated();
+  }
+}
 
-  if (!response.error.isEmpty()) {
-    qWarning() << "Response error:" << response.error;
-    emit error(response.error);
-    return;
+void Mug::onTargetTempReceived(float tempCelsius) {
+  if (!qFuzzyCompare(m_targetTemp, tempCelsius)) {
+    m_targetTemp = tempCelsius;
+    emit targetTempChanged();
+    emit stateUpdated();
+  }
+}
+
+void Mug::onTempUnitReceived(quint8 unit) {
+  TempUnit newUnit = (unit == 0) ? TempUnit::Celsius : TempUnit::Fahrenheit;
+  if (m_tempUnit != newUnit) {
+    m_tempUnit = newUnit;
+    emit tempUnitChanged();
+    emit stateUpdated();
+  }
+}
+
+void Mug::onBatteryReceived(int level, bool charging) {
+  bool changed = false;
+
+  if (m_batteryLevel != level) {
+    m_batteryLevel = level;
+    emit batteryLevelChanged();
+    changed = true;
   }
 
-  switch (response.type) {
-  case Protocol::ResponseType::Ack:
-    qInfo() << "Command acknowledged";
-    break;
-  case Protocol::ResponseType::Nack:
-    qWarning() << "Command failed (NACK)";
-    emit error(QStringLiteral("Command rejected by device"));
-    break;
-  case Protocol::ResponseType::Data:
-    // Parse mug state
-    if (response.payload.size() >= 4) {
-      // Current temperature (Celsius * 100, little-endian)
-      int tempInt = static_cast<quint8>(response.payload[0]) |
-                    (static_cast<quint8>(response.payload[1]) << 8);
-      float newCurrentTemp = tempInt / 100.0f;
-      if (!qFuzzyCompare(m_currentTemp, newCurrentTemp)) {
-        m_currentTemp = newCurrentTemp;
-        emit currentTempChanged();
-      }
+  BatteryState newState = charging ? BatteryState::Charging
+                                   : BatteryState::Discharging;
+  if (m_batteryState != newState) {
+    m_batteryState = newState;
+    emit batteryStateChanged();
+    changed = true;
+  }
 
-      // Target temperature
-      int targetInt = static_cast<quint8>(response.payload[2]) |
-                      (static_cast<quint8>(response.payload[3]) << 8);
-      float newTargetTemp = targetInt / 100.0f;
-      if (!qFuzzyCompare(m_targetTemp, newTargetTemp)) {
-        m_targetTemp = newTargetTemp;
-        emit targetTempChanged();
-      }
+  if (changed) {
+    emit stateUpdated();
+  }
+}
 
-      if (response.payload.size() >= 5) {
-        int newBatteryLevel = static_cast<quint8>(response.payload[4]);
-        if (m_batteryLevel != newBatteryLevel) {
-          m_batteryLevel = newBatteryLevel;
-          emit batteryLevelChanged();
-        }
-      }
+void Mug::onLiquidStateReceived(quint8 state) {
+  LiquidState newState = static_cast<LiquidState>(state);
+  if (m_liquidState != newState) {
+    m_liquidState = newState;
+    emit liquidStateChanged();
 
-      if (response.payload.size() >= 6) {
-        // Flags byte - bit 0 = heating
-        quint8 flags = static_cast<quint8>(response.payload[5]);
-        bool newIsHeating = (flags & 0x01) != 0;
-        if (m_isHeating != newIsHeating) {
-          m_isHeating = newIsHeating;
-          emit heatingChanged();
-        }
-      }
-
-      emit stateUpdated();
+    // Update heating state based on liquid state
+    bool newIsHeating = (newState == LiquidState::Heating);
+    if (m_isHeating != newIsHeating) {
+      m_isHeating = newIsHeating;
+      emit heatingChanged();
     }
+
+    emit stateUpdated();
+  }
+}
+
+void Mug::onPushEventReceived(quint8 event) {
+  qInfo() << "Push event received:" << event;
+
+  // React to push events by reading relevant characteristics
+  switch (event) {
+  case Constants::EVENT_REFRESH_BATTERY:
+  case Constants::EVENT_CHARGING:
+  case Constants::EVENT_NOT_CHARGING:
+    m_service->readBattery();
+    break;
+  case Constants::EVENT_REFRESH_TARGET_TEMP:
+    m_service->readTargetTemp();
+    break;
+  case Constants::EVENT_REFRESH_CURRENT_TEMP:
+    m_service->readCurrentTemp();
+    break;
+  case Constants::EVENT_REFRESH_LIQUID_LEVEL:
+  case Constants::EVENT_REFRESH_LIQUID_STATE:
+    m_service->readLiquidState();
+    break;
+  default:
+    // Refresh everything for unknown events
+    refresh();
     break;
   }
 }

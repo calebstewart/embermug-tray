@@ -1,6 +1,5 @@
 set(EMBER_SOURCES
     src/mug.cpp
-    src/protocol.cpp
     src/service.cpp
 )
 
@@ -9,7 +8,6 @@ set(EMBER_HEADERS
     include/ember/types.h
     include/ember/ember.h
     src/service.h
-    src/protocol.h
     src/constants.h
 )
 

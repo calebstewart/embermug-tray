@@ -2,11 +2,16 @@
 #define TRAYCONTROLLER_H
 
 #include <QAction>
+#include <QIcon>
 #include <QMenu>
 #include <QObject>
+#include <QSettings>
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <ember/ember.h>
+
+enum class PlateState { Gray, Red, Green, Blue };
+enum class MugState { Normal, LowBattery };
 
 class DeviceMonitor;
 class ConnectionManager;
@@ -35,8 +40,12 @@ private slots:
 
 private:
   void rebuildDeviceMenu();
+  void rebuildTargetTempMenu();
   void updateMugDisplay();
   void updateTrayTooltip();
+  QIcon renderIcon(const QColor &mugColor, const QColor &plateColor);
+  void initIconCache();
+  void updateTrayIcon();
 
   DeviceMonitor *m_monitor;
   ConnectionManager *m_manager;
@@ -47,11 +56,16 @@ private:
   QAction *m_statusAction;
   QAction *m_tempAction;
   QAction *m_batteryAction;
-  QAction *m_scanAction;
-  QAction *m_disconnectAction;
+  QMenu *m_targetTempMenu;
   QAction *m_quitAction;
 
   QTimer m_refreshTimer;
+  QSettings m_settings;
+
+  QString m_preferredAddress;
+  QString m_preferredName;
+
+  QIcon m_iconCache[2][4]; // [MugState][PlateState]
 };
 
 #endif // TRAYCONTROLLER_H

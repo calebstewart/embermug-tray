@@ -78,10 +78,16 @@ void TestTypes::testLiquidStateToString() {
            QStringLiteral("Unknown"));
   QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::Empty),
            QStringLiteral("Empty"));
-  QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::Half),
-           QStringLiteral("Half"));
-  QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::Full),
-           QStringLiteral("Full"));
+  QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::Filling),
+           QStringLiteral("Filling"));
+  QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::Cold),
+           QStringLiteral("Cold"));
+  QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::Cooling),
+           QStringLiteral("Cooling"));
+  QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::Heating),
+           QStringLiteral("Heating"));
+  QCOMPARE(Ember::liquidStateToString(Ember::LiquidState::AtTarget),
+           QStringLiteral("At Target"));
 }
 
 void TestTypes::testMugEventToString() {
