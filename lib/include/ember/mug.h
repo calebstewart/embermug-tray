@@ -63,6 +63,9 @@ class Mug : public QObject {
   /** @brief User-configured name of the mug. */
   Q_PROPERTY(QString name READ name NOTIFY nameChanged)
 
+  /** @brief LED color of the mug. */
+  Q_PROPERTY(MugColor color READ color NOTIFY colorChanged)
+
 public:
   /**
    * @brief Check if a Bluetooth device is an Ember Mug.
@@ -152,6 +155,12 @@ public:
   [[nodiscard]] QString name() const;
 
   /**
+   * @brief Get the mug's LED color.
+   * @return The current LED color.
+   */
+  [[nodiscard]] MugColor color() const;
+
+  /**
    * @brief Set the target temperature.
    * @param celsius Target temperature in Celsius.
    */
@@ -162,6 +171,12 @@ public:
    * @param unit The temperature unit to use.
    */
   Q_INVOKABLE void setTemperatureUnit(TempUnit unit);
+
+  /**
+   * @brief Set the mug's LED color.
+   * @param color The color to set.
+   */
+  Q_INVOKABLE void setColor(const MugColor &color);
 
   /**
    * @brief Request a refresh of all mug properties.
@@ -207,6 +222,9 @@ signals:
   /** @brief Emitted when the mug name changes. */
   void nameChanged();
 
+  /** @brief Emitted when the mug LED color changes. */
+  void colorChanged();
+
 private slots:
   void onServiceReady();
   void onServiceError(const QString &error);
@@ -217,6 +235,7 @@ private slots:
   void onBatteryReceived(int level, bool charging);
   void onLiquidStateReceived(quint8 state);
   void onPushEventReceived(quint8 event);
+  void onColorReceived(quint8 red, quint8 green, quint8 blue, quint8 alpha);
 
 private:
   QLowEnergyController *m_controller;
@@ -231,6 +250,7 @@ private:
   LiquidState m_liquidState = LiquidState::Unknown;
   bool m_isHeating = false;
   QString m_name;
+  MugColor m_color;
 };
 
 } // namespace Ember

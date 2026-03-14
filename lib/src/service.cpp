@@ -93,6 +93,13 @@ void Service::readLiquidState() {
   }
 }
 
+void Service::readColor() {
+  auto chr = findCharacteristic(Constants::CHAR_MUG_COLOR);
+  if (chr.isValid()) {
+    m_service->readCharacteristic(chr);
+  }
+}
+
 void Service::writeTargetTemp(quint16 tempCelsiusTimes100) {
   auto chr = findCharacteristic(Constants::CHAR_TARGET_TEMP);
   if (chr.isValid()) {
@@ -125,6 +132,26 @@ void Service::writeTempUnit(quint8 unit) {
     m_service->writeCharacteristic(chr, data, mode);
   } else {
     qWarning() << "Temp unit characteristic not found";
+  }
+}
+
+void Service::writeColor(quint8 red, quint8 green, quint8 blue, quint8 alpha) {
+  auto chr = findCharacteristic(Constants::CHAR_MUG_COLOR);
+  if (chr.isValid()) {
+    QByteArray data;
+    data.append(static_cast<char>(red));
+    data.append(static_cast<char>(green));
+    data.append(static_cast<char>(blue));
+    data.append(static_cast<char>(alpha));
+
+    // Use WriteWithoutResponse if the characteristic supports it
+    auto mode =
+        ((chr.properties() & QLowEnergyCharacteristic::WriteNoResponse) != 0)
+            ? QLowEnergyService::WriteWithoutResponse
+            : QLowEnergyService::WriteWithResponse;
+    m_service->writeCharacteristic(chr, data, mode);
+  } else {
+    qWarning() << "Color characteristic not found";
   }
 }
 
@@ -188,6 +215,7 @@ void Service::onCharacteristicRead(const QLowEnergyCharacteristic &charInfo,
   QBluetoothUuid batteryUuid(QString::fromLatin1(Constants::CHAR_BATTERY));
   QBluetoothUuid liquidStateUuid(
       QString::fromLatin1(Constants::CHAR_LIQUID_STATE));
+  QBluetoothUuid colorUuid(QString::fromLatin1(Constants::CHAR_MUG_COLOR));
 
   if (charInfo.uuid() == mugNameUuid) {
     QString name = QString::fromUtf8(value);
@@ -219,6 +247,13 @@ void Service::onCharacteristicRead(const QLowEnergyCharacteristic &charInfo,
   } else if (charInfo.uuid() == liquidStateUuid) {
     if (value.size() >= 1) {
       emit liquidStateReceived(static_cast<quint8>(value[0]));
+    }
+  } else if (charInfo.uuid() == colorUuid) {
+    if (value.size() >= 4) {
+      emit colorReceived(static_cast<quint8>(value[0]),
+                         static_cast<quint8>(value[1]),
+                         static_cast<quint8>(value[2]),
+                         static_cast<quint8>(value[3]));
     }
   }
 }
@@ -291,6 +326,7 @@ void Service::readAllCharacteristics() {
   readTempUnit();
   readBattery();
   readLiquidState();
+  readColor();
 }
 
 } // namespace Ember

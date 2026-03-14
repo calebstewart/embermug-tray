@@ -27,10 +27,12 @@ public:
   void readTempUnit();
   void readBattery();
   void readLiquidState();
+  void readColor();
 
   // Write operations
   void writeTargetTemp(quint16 tempCelsiusTimes100);
   void writeTempUnit(quint8 unit);
+  void writeColor(quint8 red, quint8 green, quint8 blue, quint8 alpha);
 
 signals:
   void ready();
@@ -44,6 +46,7 @@ signals:
   void batteryReceived(int level, bool charging);
   void liquidStateReceived(quint8 state);
   void pushEventReceived(quint8 event);
+  void colorReceived(quint8 red, quint8 green, quint8 blue, quint8 alpha);
 
 private slots:
   void onServiceDiscovered(const QBluetoothUuid &uuid);

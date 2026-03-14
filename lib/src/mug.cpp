@@ -34,6 +34,7 @@ Mug::Mug(QLowEnergyController *controller, QObject *parent)
           &Mug::onLiquidStateReceived);
   connect(m_service, &Service::pushEventReceived, this,
           &Mug::onPushEventReceived);
+  connect(m_service, &Service::colorReceived, this, &Mug::onColorReceived);
 }
 
 Mug::~Mug() = default;
@@ -71,6 +72,8 @@ bool Mug::isHeating() const { return m_isHeating; }
 
 QString Mug::name() const { return m_name; }
 
+MugColor Mug::color() const { return m_color; }
+
 void Mug::setTargetTemperature(float celsius) {
   if (m_service == nullptr || !m_service->isReady()) {
     qWarning() << "Cannot set target temperature: service not ready";
@@ -92,6 +95,15 @@ void Mug::setTemperatureUnit(TempUnit unit) {
   m_service->writeTempUnit(static_cast<quint8>(unit));
 }
 
+void Mug::setColor(const MugColor &color) {
+  if (m_service == nullptr || !m_service->isReady()) {
+    qWarning() << "Cannot set color: service not ready";
+    return;
+  }
+
+  m_service->writeColor(color.red, color.green, color.blue, color.alpha);
+}
+
 void Mug::refresh() {
   if (m_service == nullptr || !m_service->isReady()) {
     qWarning() << "Cannot refresh: service not ready";
@@ -102,6 +114,7 @@ void Mug::refresh() {
   m_service->readTargetTemp();
   m_service->readBattery();
   m_service->readLiquidState();
+  m_service->readColor();
 }
 
 void Mug::onServiceReady() {
@@ -211,6 +224,15 @@ void Mug::onPushEventReceived(quint8 event) {
     // Refresh everything for unknown events
     refresh();
     break;
+  }
+}
+
+void Mug::onColorReceived(quint8 red, quint8 green, quint8 blue, quint8 alpha) {
+  MugColor newColor{red, green, blue, alpha};
+  if (m_color != newColor) {
+    m_color = newColor;
+    emit colorChanged();
+    emit stateUpdated();
   }
 }
 

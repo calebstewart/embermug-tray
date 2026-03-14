@@ -7,6 +7,7 @@
  */
 
 #include <QString>
+#include <QtGlobal>
 
 namespace Ember {
 
@@ -55,6 +56,25 @@ enum class BatteryState {
   Discharging = 0x02,  ///< Battery is discharging (in use)
   Full = 0x03,         ///< Battery is fully charged
   NotCharging = 0x04   ///< On coaster but not charging
+};
+
+/**
+ * @brief RGBA color for the mug LED.
+ */
+struct MugColor {
+  quint8 red = 0;    ///< Red channel (0-255)
+  quint8 green = 0;  ///< Green channel (0-255)
+  quint8 blue = 0;   ///< Blue channel (0-255)
+  quint8 alpha = 255; ///< Alpha channel (0-255)
+
+  bool operator==(const MugColor &other) const {
+    return red == other.red && green == other.green &&
+           blue == other.blue && alpha == other.alpha;
+  }
+
+  bool operator!=(const MugColor &other) const {
+    return !(*this == other);
+  }
 };
 
 /**

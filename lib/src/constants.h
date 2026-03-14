@@ -16,6 +16,7 @@ constexpr const char *CHAR_TEMP_UNIT = "fc540004-236c-4c94-8fa9-944a3e5353fa";
 constexpr const char *CHAR_BATTERY = "fc540007-236c-4c94-8fa9-944a3e5353fa";
 constexpr const char *CHAR_LIQUID_STATE = "fc540008-236c-4c94-8fa9-944a3e5353fa";
 constexpr const char *CHAR_PUSH_EVENTS = "fc540012-236c-4c94-8fa9-944a3e5353fa";
+constexpr const char *CHAR_MUG_COLOR = "fc540014-236c-4c94-8fa9-944a3e5353fa";
 
 // Temperature range (Celsius)
 constexpr float MIN_TEMPERATURE_C = 50.0f;
