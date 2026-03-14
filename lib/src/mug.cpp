@@ -13,6 +13,7 @@ bool Mug::isEmberMug(const QBluetoothDeviceInfo &device) {
 }
 
 QBluetoothUuid Mug::serviceUuid() {
+  // NOLINTNEXTLINE(modernize-return-braced-init-list) - QBluetoothUuid has explicit constructor
   return QBluetoothUuid(QString::fromLatin1(Constants::SERVICE_UUID));
 }
 
@@ -26,7 +27,8 @@ Mug::Mug(QLowEnergyController *controller, QObject *parent)
           &Mug::onCurrentTempReceived);
   connect(m_service, &Service::targetTempReceived, this,
           &Mug::onTargetTempReceived);
-  connect(m_service, &Service::tempUnitReceived, this, &Mug::onTempUnitReceived);
+  connect(m_service, &Service::tempUnitReceived, this,
+          &Mug::onTempUnitReceived);
   connect(m_service, &Service::batteryReceived, this, &Mug::onBatteryReceived);
   connect(m_service, &Service::liquidStateReceived, this,
           &Mug::onLiquidStateReceived);
@@ -34,10 +36,10 @@ Mug::Mug(QLowEnergyController *controller, QObject *parent)
           &Mug::onPushEventReceived);
 }
 
-Mug::~Mug() {}
+Mug::~Mug() = default;
 
 void Mug::initialize() {
-  if (!m_controller) {
+  if (m_controller == nullptr) {
     emit error(QStringLiteral("No controller provided"));
     return;
   }
@@ -70,19 +72,19 @@ bool Mug::isHeating() const { return m_isHeating; }
 QString Mug::name() const { return m_name; }
 
 void Mug::setTargetTemperature(float celsius) {
-  if (!m_service || !m_service->isReady()) {
+  if (m_service == nullptr || !m_service->isReady()) {
     qWarning() << "Cannot set target temperature: service not ready";
     return;
   }
 
   float temp = qBound(Constants::MIN_TEMPERATURE_C, celsius,
                       Constants::MAX_TEMPERATURE_C);
-  quint16 tempValue = static_cast<quint16>(temp * 100);
+  auto tempValue = static_cast<quint16>(temp * 100);
   m_service->writeTargetTemp(tempValue);
 }
 
 void Mug::setTemperatureUnit(TempUnit unit) {
-  if (!m_service || !m_service->isReady()) {
+  if (m_service == nullptr || !m_service->isReady()) {
     qWarning() << "Cannot set temperature unit: service not ready";
     return;
   }
@@ -91,7 +93,7 @@ void Mug::setTemperatureUnit(TempUnit unit) {
 }
 
 void Mug::refresh() {
-  if (!m_service || !m_service->isReady()) {
+  if (m_service == nullptr || !m_service->isReady()) {
     qWarning() << "Cannot refresh: service not ready";
     return;
   }
@@ -155,8 +157,8 @@ void Mug::onBatteryReceived(int level, bool charging) {
     changed = true;
   }
 
-  BatteryState newState = charging ? BatteryState::Charging
-                                   : BatteryState::Discharging;
+  BatteryState newState =
+      charging ? BatteryState::Charging : BatteryState::Discharging;
   if (m_batteryState != newState) {
     m_batteryState = newState;
     emit batteryStateChanged();
@@ -169,7 +171,7 @@ void Mug::onBatteryReceived(int level, bool charging) {
 }
 
 void Mug::onLiquidStateReceived(quint8 state) {
-  LiquidState newState = static_cast<LiquidState>(state);
+  auto newState = static_cast<LiquidState>(state);
   if (m_liquidState != newState) {
     m_liquidState = newState;
     emit liquidStateChanged();

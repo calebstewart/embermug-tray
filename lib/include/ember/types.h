@@ -1,53 +1,85 @@
 #ifndef EMBER_TYPES_H
 #define EMBER_TYPES_H
 
+/**
+ * @file types.h
+ * @brief Common types and utilities for Ember Mug communication.
+ */
+
 #include <QString>
 
 namespace Ember {
 
-// Temperature unit enum
-enum class TempUnit { Celsius = 0x00, Fahrenheit = 0x01 };
+/**
+ * @brief Temperature unit for display and input.
+ */
+enum class TempUnit {
+  Celsius = 0x00,    ///< Celsius temperature scale
+  Fahrenheit = 0x01  ///< Fahrenheit temperature scale
+};
 
-// Liquid state enum (matches Ember Mug BLE values)
+/**
+ * @brief State of the liquid in the mug.
+ *
+ * Values correspond to Ember Mug BLE protocol values.
+ */
 enum class LiquidState {
-  Unknown = 0x00,
-  Empty = 0x01,
-  Filling = 0x02,
-  Cold = 0x03,
-  Cooling = 0x04,
-  Heating = 0x05,
-  AtTarget = 0x06
+  Unknown = 0x00,  ///< State not yet determined
+  Empty = 0x01,    ///< Mug is empty
+  Filling = 0x02,  ///< Liquid is being poured
+  Cold = 0x03,     ///< Liquid is below target temperature
+  Cooling = 0x04,  ///< Liquid is cooling down toward target
+  Heating = 0x05,  ///< Liquid is being heated toward target
+  AtTarget = 0x06  ///< Liquid is at target temperature
 };
 
-// Mug event enum
+/**
+ * @brief Events pushed from the mug.
+ */
 enum class MugEvent {
-  None = 0x00,
-  CupRemoved = 0x01,
-  CupPlaced = 0x02,
-  TempReached = 0x03,
-  BatteryLow = 0x04,
-  HeatingStarted = 0x05,
-  HeatingStopped = 0x06
+  None = 0x00,           ///< No event
+  CupRemoved = 0x01,     ///< Mug removed from charging coaster
+  CupPlaced = 0x02,      ///< Mug placed on charging coaster
+  TempReached = 0x03,    ///< Target temperature reached
+  BatteryLow = 0x04,     ///< Battery level is low
+  HeatingStarted = 0x05, ///< Mug started heating
+  HeatingStopped = 0x06  ///< Mug stopped heating
 };
 
-// Battery state enum
+/**
+ * @brief Battery charging state.
+ */
 enum class BatteryState {
-  Unknown = 0x00,
-  Charging = 0x01,
-  Discharging = 0x02,
-  Full = 0x03,
-  NotCharging = 0x04
+  Unknown = 0x00,      ///< State not yet determined
+  Charging = 0x01,     ///< Battery is charging
+  Discharging = 0x02,  ///< Battery is discharging (in use)
+  Full = 0x03,         ///< Battery is fully charged
+  NotCharging = 0x04   ///< On coaster but not charging
 };
 
-// Conversion utilities
+/**
+ * @brief Convert Celsius to Fahrenheit.
+ * @param celsius Temperature in Celsius.
+ * @return Temperature in Fahrenheit.
+ */
 inline float celsiusToFahrenheit(float celsius) {
   return celsius * 9.0f / 5.0f + 32.0f;
 }
 
+/**
+ * @brief Convert Fahrenheit to Celsius.
+ * @param fahrenheit Temperature in Fahrenheit.
+ * @return Temperature in Celsius.
+ */
 inline float fahrenheitToCelsius(float fahrenheit) {
   return (fahrenheit - 32.0f) * 5.0f / 9.0f;
 }
 
+/**
+ * @brief Get human-readable string for a temperature unit.
+ * @param unit The temperature unit.
+ * @return Display string for the unit.
+ */
 inline QString tempUnitToString(TempUnit unit) {
   switch (unit) {
   case TempUnit::Celsius:
@@ -59,6 +91,11 @@ inline QString tempUnitToString(TempUnit unit) {
   }
 }
 
+/**
+ * @brief Get human-readable string for a liquid state.
+ * @param state The liquid state.
+ * @return Display string for the state.
+ */
 inline QString liquidStateToString(LiquidState state) {
   switch (state) {
   case LiquidState::Empty:
@@ -78,6 +115,11 @@ inline QString liquidStateToString(LiquidState state) {
   }
 }
 
+/**
+ * @brief Get human-readable string for a battery state.
+ * @param state The battery state.
+ * @return Display string for the state.
+ */
 inline QString batteryStateToString(BatteryState state) {
   switch (state) {
   case BatteryState::Charging:
@@ -93,6 +135,11 @@ inline QString batteryStateToString(BatteryState state) {
   }
 }
 
+/**
+ * @brief Get human-readable string for a mug event.
+ * @param event The mug event.
+ * @return Display string for the event.
+ */
 inline QString mugEventToString(MugEvent event) {
   switch (event) {
   case MugEvent::CupRemoved:

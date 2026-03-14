@@ -9,6 +9,7 @@
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSvgRenderer>
+#include <array>
 #include <cmath>
 
 TrayController::TrayController(DeviceMonitor *monitor,
@@ -163,8 +164,9 @@ void TrayController::onDisconnected() {
 
 void TrayController::onMugReady() {
   Ember::Mug *mug = m_manager->mug();
-  if (!mug)
+  if (mug == nullptr) {
     return;
+  }
 
   QString name = mug->name();
   if (name.isEmpty()) {
@@ -198,7 +200,7 @@ void TrayController::onMugStateUpdated() {
 
 void TrayController::onRefreshTimer() {
   Ember::Mug *mug = m_manager->mug();
-  if (mug && mug->isReady()) {
+  if (mug != nullptr && mug->isReady()) {
     mug->refresh();
   }
 }
@@ -278,8 +280,9 @@ void TrayController::rebuildDeviceMenu() {
 
 void TrayController::updateMugDisplay() {
   Ember::Mug *mug = m_manager->mug();
-  if (!mug)
+  if (mug == nullptr) {
     return;
+  }
 
   QString tempSuffix = (mug->tempUnit() == Ember::TempUnit::Celsius)
                            ? QStringLiteral("\u00B0C")
@@ -308,7 +311,7 @@ void TrayController::updateTrayTooltip() {
   QString tooltip = QStringLiteral("EmberMug Tray\n");
 
   Ember::Mug *mug = m_manager->mug();
-  if (mug && mug->isReady()) {
+  if (mug != nullptr && mug->isReady()) {
     QString tempSuffix = (mug->tempUnit() == Ember::TempUnit::Celsius)
                              ? QStringLiteral("\u00B0C")
                              : QStringLiteral("\u00B0F");
@@ -340,8 +343,9 @@ void TrayController::rebuildTargetTempMenu() {
   m_targetTempMenu->clear();
 
   Ember::Mug *mug = m_manager->mug();
-  if (!mug || !mug->isReady())
+  if (mug == nullptr || !mug->isReady()) {
     return;
+  }
 
   // Temperature presets: name, celsius value, fahrenheit value
   struct TempPreset {
@@ -350,12 +354,12 @@ void TrayController::rebuildTargetTempMenu() {
     int fahrenheit;
   };
 
-  static const TempPreset presets[] = {
+  static const std::array<TempPreset, 4> presets = {{
       {"Extra Hot", 62.5f, 145},
       {"Coffee", 57.0f, 135},
       {"Tea", 54.0f, 130},
       {"Warm", 51.0f, 124},
-  };
+  }};
 
   float currentTarget = mug->targetTemp();
 
@@ -375,19 +379,21 @@ void TrayController::rebuildTargetTempMenu() {
 
     float presetCelsius = preset.celsius;
     connect(action, &QAction::triggered, this, [this, presetCelsius]() {
-      Ember::Mug *mug = m_manager->mug();
-      if (mug && mug->isReady()) {
-        mug->setTargetTemperature(presetCelsius);
+      Ember::Mug *innerMug = m_manager->mug();
+      if (innerMug != nullptr && innerMug->isReady()) {
+        innerMug->setTargetTemperature(presetCelsius);
       }
     });
   }
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static)
 QIcon TrayController::renderIcon(const QColor &mugColor,
                                  const QColor &plateColor) {
   QFile file(QStringLiteral(":/coffee.svg"));
   if (!file.open(QIODevice::ReadOnly)) {
     qWarning() << "Failed to open coffee.svg";
+    // NOLINTNEXTLINE(modernize-return-braced-init-list) - explicit constructor
     return QIcon();
   }
   QString svgContent = QString::fromUtf8(file.readAll());
@@ -412,24 +418,25 @@ QIcon TrayController::renderIcon(const QColor &mugColor,
   QPainter painter(&pixmap);
   renderer.render(&painter);
 
+  // NOLINTNEXTLINE(modernize-return-braced-init-list) - explicit constructor
   return QIcon(pixmap);
 }
 
 void TrayController::initIconCache() {
-  const QColor mugColors[] = {
+  const std::array<QColor, 2> mugColors = {
       QColor(QStringLiteral("#e8e8e8")), // Normal
       QColor(QStringLiteral("#ff8844"))  // LowBattery
   };
-  const QColor plateColors[] = {
+  const std::array<QColor, 4> plateColors = {
       QColor(QStringLiteral("#888888")), // Gray
       QColor(QStringLiteral("#ff4444")), // Red (heating)
       QColor(QStringLiteral("#44cc44")), // Green (at temp)
       QColor(QStringLiteral("#4488ff"))  // Blue (cold)
   };
 
-  for (int m = 0; m < 2; ++m) {
-    for (int p = 0; p < 4; ++p) {
-      m_iconCache[m][p] = renderIcon(mugColors[m], plateColors[p]);
+  for (size_t ms = 0; ms < mugColors.size(); ++ms) {
+    for (size_t ps = 0; ps < plateColors.size(); ++ps) {
+      m_iconCache.at(ms).at(ps) = renderIcon(mugColors.at(ms), plateColors.at(ps));
     }
   }
 }
@@ -439,7 +446,7 @@ void TrayController::updateTrayIcon() {
   PlateState plateState = PlateState::Gray;
 
   Ember::Mug *mug = m_manager->mug();
-  if (mug && mug->isReady()) {
+  if (mug != nullptr && mug->isReady()) {
     // Battery state
     if (mug->batteryLevel() < 20) {
       mugState = MugState::LowBattery;
@@ -466,5 +473,5 @@ void TrayController::updateTrayIcon() {
   }
 
   m_trayIcon->setIcon(
-      m_iconCache[static_cast<int>(mugState)][static_cast<int>(plateState)]);
+      m_iconCache.at(static_cast<size_t>(mugState)).at(static_cast<size_t>(plateState)));
 }

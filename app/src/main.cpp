@@ -7,10 +7,10 @@
 
 int main(int argc, char *argv[]) {
   QApplication app(argc, argv);
-  app.setOrganizationName(QStringLiteral("embermug"));
-  app.setApplicationName(QStringLiteral("tray"));
-  app.setApplicationVersion(QStringLiteral("0.2.0"));
-  app.setQuitOnLastWindowClosed(false);
+  QApplication::setOrganizationName(QStringLiteral("embermug"));
+  QApplication::setApplicationName(QStringLiteral("tray"));
+  QApplication::setApplicationVersion(QStringLiteral("0.2.0"));
+  QApplication::setQuitOnLastWindowClosed(false);
 
   qInfo() << "embermug-tray started";
 
@@ -22,5 +22,5 @@ int main(int argc, char *argv[]) {
 
   qInfo() << "System tray icon created";
 
-  return app.exec();
+  return QApplication::exec();
 }

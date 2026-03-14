@@ -11,19 +11,20 @@
 
 class DeviceMonitor : public QObject {
   Q_OBJECT
+  Q_DISABLE_COPY_MOVE(DeviceMonitor)
 
 public:
   explicit DeviceMonitor(QObject *parent = nullptr);
-  ~DeviceMonitor();
+  ~DeviceMonitor() override;
 
   void startMonitoring();
   void stopMonitoring();
 
-  QList<QBluetoothDeviceInfo> availableDevices() const;
-  bool isScanning() const;
+  [[nodiscard]] QList<QBluetoothDeviceInfo> availableDevices() const;
+  [[nodiscard]] bool isScanning() const;
 
-  std::optional<QBluetoothDeviceInfo> findByAddress(const QBluetoothAddress &addr) const;
-  std::optional<QBluetoothDeviceInfo> findByName(const QString &name) const;
+  [[nodiscard]] std::optional<QBluetoothDeviceInfo> findByAddress(const QBluetoothAddress &addr) const;
+  [[nodiscard]] std::optional<QBluetoothDeviceInfo> findByName(const QString &name) const;
 
 signals:
   void devicesChanged();

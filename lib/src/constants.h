@@ -3,8 +3,7 @@
 
 #include <QtGlobal>
 
-namespace Ember {
-namespace Constants {
+namespace Ember::Constants {
 
 // Service UUID for Ember Mug
 constexpr const char *SERVICE_UUID = "fc543622-236c-4c94-8fa9-944a3e5353fa";
@@ -39,7 +38,6 @@ constexpr quint8 EVENT_REFRESH_LIQUID_STATE = 0x08;
 constexpr int BATTERY_MIN = 5;
 constexpr int BATTERY_MAX = 100;
 
-} // namespace Constants
-} // namespace Ember
+} // namespace Ember::Constants
 
 #endif // EMBER_CONSTANTS_H

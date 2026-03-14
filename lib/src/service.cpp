@@ -8,13 +8,13 @@ Service::Service(QLowEnergyController *controller, QObject *parent)
     : QObject(parent), m_controller(controller) {}
 
 Service::~Service() {
-  if (m_service) {
+  if (m_service != nullptr) {
     m_service->deleteLater();
   }
 }
 
 void Service::initialize() {
-  if (!m_controller) {
+  if (m_controller == nullptr) {
     emit error(QStringLiteral("No controller provided"));
     return;
   }
@@ -35,7 +35,8 @@ void Service::initialize() {
 bool Service::isReady() const { return m_ready; }
 
 QLowEnergyCharacteristic Service::findCharacteristic(const char *uuid) {
-  if (!m_service) {
+  if (m_service == nullptr) {
+    // NOLINTNEXTLINE(modernize-return-braced-init-list) - explicit constructor
     return QLowEnergyCharacteristic();
   }
 
@@ -46,6 +47,7 @@ QLowEnergyCharacteristic Service::findCharacteristic(const char *uuid) {
       return chr;
     }
   }
+  // NOLINTNEXTLINE(modernize-return-braced-init-list) - explicit constructor
   return QLowEnergyCharacteristic();
 }
 
@@ -99,9 +101,10 @@ void Service::writeTargetTemp(quint16 tempCelsiusTimes100) {
     data.append(static_cast<char>((tempCelsiusTimes100 >> 8) & 0xFF));
 
     // Use WriteWithoutResponse if the characteristic supports it
-    auto mode = (chr.properties() & QLowEnergyCharacteristic::WriteNoResponse)
-                    ? QLowEnergyService::WriteWithoutResponse
-                    : QLowEnergyService::WriteWithResponse;
+    auto mode =
+        ((chr.properties() & QLowEnergyCharacteristic::WriteNoResponse) != 0)
+            ? QLowEnergyService::WriteWithoutResponse
+            : QLowEnergyService::WriteWithResponse;
     m_service->writeCharacteristic(chr, data, mode);
   } else {
     qWarning() << "Target temp characteristic not found";
@@ -115,15 +118,17 @@ void Service::writeTempUnit(quint8 unit) {
     data.append(static_cast<char>(unit));
 
     // Use WriteWithoutResponse if the characteristic supports it
-    auto mode = (chr.properties() & QLowEnergyCharacteristic::WriteNoResponse)
-                    ? QLowEnergyService::WriteWithoutResponse
-                    : QLowEnergyService::WriteWithResponse;
+    auto mode =
+        ((chr.properties() & QLowEnergyCharacteristic::WriteNoResponse) != 0)
+            ? QLowEnergyService::WriteWithoutResponse
+            : QLowEnergyService::WriteWithResponse;
     m_service->writeCharacteristic(chr, data, mode);
   } else {
     qWarning() << "Temp unit characteristic not found";
   }
 }
 
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static) - Qt slot
 void Service::onServiceDiscovered(const QBluetoothUuid &uuid) {
   QBluetoothUuid emberServiceUuid(QString::fromLatin1(Constants::SERVICE_UUID));
   if (uuid == emberServiceUuid) {
@@ -137,7 +142,7 @@ void Service::onServiceDiscoveryFinished() {
   QBluetoothUuid emberServiceUuid(QString::fromLatin1(Constants::SERVICE_UUID));
   m_service = m_controller->createServiceObject(emberServiceUuid, this);
 
-  if (!m_service) {
+  if (m_service == nullptr) {
     emit error(QStringLiteral("Ember service not found on device"));
     return;
   }
@@ -191,14 +196,14 @@ void Service::onCharacteristicRead(const QLowEnergyCharacteristic &charInfo,
     if (value.size() >= 2) {
       quint16 tempInt = static_cast<quint8>(value[0]) |
                         (static_cast<quint8>(value[1]) << 8);
-      float tempCelsius = tempInt * 0.01f;
+      float tempCelsius = static_cast<float>(tempInt) * 0.01f;
       emit currentTempReceived(tempCelsius);
     }
   } else if (charInfo.uuid() == targetTempUuid) {
     if (value.size() >= 2) {
       quint16 tempInt = static_cast<quint8>(value[0]) |
                         (static_cast<quint8>(value[1]) << 8);
-      float tempCelsius = tempInt * 0.01f;
+      float tempCelsius = static_cast<float>(tempInt) * 0.01f;
       emit targetTempReceived(tempCelsius);
     }
   } else if (charInfo.uuid() == tempUnitUuid) {
@@ -261,8 +266,9 @@ void Service::onServiceError(QLowEnergyService::ServiceError error) {
 }
 
 void Service::setupNotifications() {
-  if (!m_service)
+  if (m_service == nullptr) {
     return;
+  }
 
   // Enable notifications on push events characteristic
   auto chr = findCharacteristic(Constants::CHAR_PUSH_EVENTS);

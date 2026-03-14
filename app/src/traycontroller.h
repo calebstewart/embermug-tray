@@ -8,6 +8,7 @@
 #include <QSettings>
 #include <QSystemTrayIcon>
 #include <QTimer>
+#include <array>
 #include <ember/ember.h>
 
 enum class PlateState { Gray, Red, Green, Blue };
@@ -18,11 +19,12 @@ class ConnectionManager;
 
 class TrayController : public QObject {
   Q_OBJECT
+  Q_DISABLE_COPY_MOVE(TrayController)
 
 public:
   explicit TrayController(DeviceMonitor *monitor, ConnectionManager *manager,
                           QObject *parent = nullptr);
-  ~TrayController();
+  ~TrayController() override;
 
   void show();
 
@@ -65,7 +67,7 @@ private:
   QString m_preferredAddress;
   QString m_preferredName;
 
-  QIcon m_iconCache[2][4]; // [MugState][PlateState]
+  std::array<std::array<QIcon, 4>, 2> m_iconCache; // [MugState][PlateState]
 };
 
 #endif // TRAYCONTROLLER_H

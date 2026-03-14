@@ -11,13 +11,14 @@ namespace Ember {
 
 class Service : public QObject {
   Q_OBJECT
+  Q_DISABLE_COPY_MOVE(Service)
 
 public:
   explicit Service(QLowEnergyController *controller, QObject *parent = nullptr);
-  ~Service();
+  ~Service() override;
 
   void initialize();
-  bool isReady() const;
+  [[nodiscard]] bool isReady() const;
 
   // Read operations
   void readMugName();
