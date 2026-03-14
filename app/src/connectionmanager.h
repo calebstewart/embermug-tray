@@ -5,22 +5,24 @@
 #include <QLowEnergyController>
 #include <QObject>
 #include <QSettings>
+#include <QTimer>
 #include <ember/mug.h>
 
 class ConnectionManager : public QObject {
   Q_OBJECT
+  Q_DISABLE_COPY_MOVE(ConnectionManager)
 
 public:
   explicit ConnectionManager(QObject *parent = nullptr);
-  ~ConnectionManager();
+  ~ConnectionManager() override;
 
   void connectToDevice(const QBluetoothDeviceInfo &device);
   void disconnect();
 
-  bool isConnected() const;
-  bool isConnecting() const;
-  Ember::Mug *mug() const;
-  QBluetoothDeviceInfo connectedDevice() const;
+  [[nodiscard]] bool isConnected() const;
+  [[nodiscard]] bool isConnecting() const;
+  [[nodiscard]] Ember::Mug *mug() const;
+  [[nodiscard]] QBluetoothDeviceInfo connectedDevice() const;
 
 signals:
   void connecting();
@@ -35,12 +37,16 @@ private slots:
   void onControllerError(QLowEnergyController::Error error);
   void onMugReady();
   void onMugError(const QString &error);
+  void onInitTimeout();
 
-private:
+private: // NOLINT(readability-redundant-access-specifiers)
+  static constexpr int INIT_TIMEOUT_MS = 10000;
+
   void cleanup();
 
   QLowEnergyController *m_controller = nullptr;
   Ember::Mug *m_mug = nullptr;
+  QTimer m_initTimer;
   QBluetoothDeviceInfo m_currentDevice;
   bool m_connecting = false;
 };
