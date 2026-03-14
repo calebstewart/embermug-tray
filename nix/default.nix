@@ -11,7 +11,7 @@ clangStdenv.mkDerivation rec {
   pname = "embermug-tray";
   version = "0.2.0";
 
-  src = ./.;
+  src = ./..;
 
   nativeBuildInputs = [
     cmake
