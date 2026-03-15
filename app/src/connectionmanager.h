@@ -2,6 +2,7 @@
 #define CONNECTIONMANAGER_H
 
 #include <QBluetoothDeviceInfo>
+#include <QBluetoothLocalDevice>
 #include <QLowEnergyController>
 #include <QObject>
 #include <QSettings>
@@ -38,14 +39,18 @@ private slots:
   void onMugReady();
   void onMugError(const QString &error);
   void onInitTimeout();
+  void onPairingFinished(const QBluetoothAddress &address,
+                         QBluetoothLocalDevice::Pairing pairing);
 
 private: // NOLINT(readability-redundant-access-specifiers)
   static constexpr int INIT_TIMEOUT_MS = 10000;
 
   void cleanup();
+  void proceedWithConnection();
 
   QLowEnergyController *m_controller = nullptr;
   Ember::Mug *m_mug = nullptr;
+  QBluetoothLocalDevice m_localDevice;
   QTimer m_initTimer;
   QBluetoothDeviceInfo m_currentDevice;
   bool m_connecting = false;

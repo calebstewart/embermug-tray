@@ -7,6 +7,8 @@ ConnectionManager::ConnectionManager(QObject *parent) : QObject(parent) {
   m_initTimer.setSingleShot(true);
   connect(&m_initTimer, &QTimer::timeout, this,
           &ConnectionManager::onInitTimeout);
+  connect(&m_localDevice, &QBluetoothLocalDevice::pairingFinished, this,
+          &ConnectionManager::onPairingFinished);
 }
 
 ConnectionManager::~ConnectionManager() { cleanup(); }
@@ -21,12 +23,29 @@ void ConnectionManager::connectToDevice(const QBluetoothDeviceInfo &device) {
   m_currentDevice = device;
   emit connecting();
 
-  m_controller = QLowEnergyController::createCentral(device, this);
+  // Ensure device is paired for write permissions on encrypted characteristics
+  auto pairingStatus = m_localDevice.pairingStatus(device.address());
+  if (pairingStatus == QBluetoothLocalDevice::Unpaired) {
+    qInfo() << "Device not paired, requesting pairing:" << device.name()
+            << device.address().toString();
+    m_localDevice.requestPairing(device.address(),
+                                 QBluetoothLocalDevice::Paired);
+    return;
+  }
+
+  proceedWithConnection();
+}
+
+void ConnectionManager::proceedWithConnection() {
+  m_controller = QLowEnergyController::createCentral(m_currentDevice, this);
   if (m_controller == nullptr) {
     m_connecting = false;
     emit connectionFailed(QStringLiteral("Failed to create BLE controller"));
     return;
   }
+
+  // BLE devices typically use random addresses
+  m_controller->setRemoteAddressType(QLowEnergyController::RandomAddress);
 
   connect(m_controller, &QLowEnergyController::connected, this,
           &ConnectionManager::onControllerConnected);
@@ -35,8 +54,8 @@ void ConnectionManager::connectToDevice(const QBluetoothDeviceInfo &device) {
   connect(m_controller, &QLowEnergyController::errorOccurred, this,
           &ConnectionManager::onControllerError);
 
-  qInfo() << "Connecting to device:" << device.name()
-          << device.address().toString();
+  qInfo() << "Connecting to device:" << m_currentDevice.name()
+          << m_currentDevice.address().toString();
   m_controller->connectToDevice();
 }
 
@@ -146,6 +165,23 @@ void ConnectionManager::onInitTimeout() {
                 "failed";
   cleanup();
   emit connectionFailed(QStringLiteral("Initialization timeout"));
+}
+
+void ConnectionManager::onPairingFinished(
+    const QBluetoothAddress &address, QBluetoothLocalDevice::Pairing pairing) {
+  if (address != m_currentDevice.address()) {
+    return;
+  }
+
+  if (pairing == QBluetoothLocalDevice::Unpaired) {
+    qWarning() << "Pairing failed for device:" << address.toString();
+    m_connecting = false;
+    emit connectionFailed(QStringLiteral("Pairing failed"));
+    return;
+  }
+
+  qInfo() << "Pairing successful for device:" << address.toString();
+  proceedWithConnection();
 }
 
 void ConnectionManager::cleanup() {

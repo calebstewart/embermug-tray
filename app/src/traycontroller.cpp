@@ -287,14 +287,18 @@ void TrayController::updateMugDisplay() {
   QString tempSuffix = (mug->tempUnit() == Ember::TempUnit::Celsius)
                            ? QStringLiteral("\u00B0C")
                            : QStringLiteral("\u00B0F");
-  float displayTemp = mug->currentTemp();
+  float currentTemp = mug->currentTemp();
+  float targetTemp = mug->targetTemp();
   if (mug->tempUnit() == Ember::TempUnit::Fahrenheit) {
-    displayTemp = Ember::celsiusToFahrenheit(displayTemp);
+    currentTemp = Ember::celsiusToFahrenheit(currentTemp);
+    targetTemp = Ember::celsiusToFahrenheit(targetTemp);
   }
 
   m_tempAction->setText(
-      QStringLiteral("Temp: %1%2%3")
-          .arg(QString::number(displayTemp, 'f', 1))
+      QStringLiteral("Temp: %1%2 → %3%4%5")
+          .arg(QString::number(currentTemp, 'f', 1))
+          .arg(tempSuffix)
+          .arg(QString::number(targetTemp, 'f', 1))
           .arg(tempSuffix)
           .arg(mug->isHeating() ? QStringLiteral(" (Heating)") : QString()));
 

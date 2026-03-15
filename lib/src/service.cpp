@@ -107,12 +107,8 @@ void Service::writeTargetTemp(quint16 tempCelsiusTimes100) {
     data.append(static_cast<char>(tempCelsiusTimes100 & 0xFF));
     data.append(static_cast<char>((tempCelsiusTimes100 >> 8) & 0xFF));
 
-    // Use WriteWithoutResponse if the characteristic supports it
-    auto mode =
-        ((chr.properties() & QLowEnergyCharacteristic::WriteNoResponse) != 0)
-            ? QLowEnergyService::WriteWithoutResponse
-            : QLowEnergyService::WriteWithResponse;
-    m_service->writeCharacteristic(chr, data, mode);
+    m_service->writeCharacteristic(chr, data,
+                                   QLowEnergyService::WriteWithoutResponse);
   } else {
     qWarning() << "Target temp characteristic not found";
   }
@@ -124,12 +120,8 @@ void Service::writeTempUnit(quint8 unit) {
     QByteArray data;
     data.append(static_cast<char>(unit));
 
-    // Use WriteWithoutResponse if the characteristic supports it
-    auto mode =
-        ((chr.properties() & QLowEnergyCharacteristic::WriteNoResponse) != 0)
-            ? QLowEnergyService::WriteWithoutResponse
-            : QLowEnergyService::WriteWithResponse;
-    m_service->writeCharacteristic(chr, data, mode);
+    m_service->writeCharacteristic(chr, data,
+                                   QLowEnergyService::WriteWithoutResponse);
   } else {
     qWarning() << "Temp unit characteristic not found";
   }
@@ -144,12 +136,8 @@ void Service::writeColor(quint8 red, quint8 green, quint8 blue, quint8 alpha) {
     data.append(static_cast<char>(blue));
     data.append(static_cast<char>(alpha));
 
-    // Use WriteWithoutResponse if the characteristic supports it
-    auto mode =
-        ((chr.properties() & QLowEnergyCharacteristic::WriteNoResponse) != 0)
-            ? QLowEnergyService::WriteWithoutResponse
-            : QLowEnergyService::WriteWithResponse;
-    m_service->writeCharacteristic(chr, data, mode);
+    m_service->writeCharacteristic(chr, data,
+                                   QLowEnergyService::WriteWithoutResponse);
   } else {
     qWarning() << "Color characteristic not found";
   }
@@ -222,15 +210,15 @@ void Service::onCharacteristicRead(const QLowEnergyCharacteristic &charInfo,
     emit mugNameReceived(name);
   } else if (charInfo.uuid() == currentTempUuid) {
     if (value.size() >= 2) {
-      quint16 tempInt = static_cast<quint8>(value[0]) |
-                        (static_cast<quint8>(value[1]) << 8);
+      quint16 tempInt =
+          static_cast<quint8>(value[0]) | (static_cast<quint8>(value[1]) << 8);
       float tempCelsius = static_cast<float>(tempInt) * 0.01f;
       emit currentTempReceived(tempCelsius);
     }
   } else if (charInfo.uuid() == targetTempUuid) {
     if (value.size() >= 2) {
-      quint16 tempInt = static_cast<quint8>(value[0]) |
-                        (static_cast<quint8>(value[1]) << 8);
+      quint16 tempInt =
+          static_cast<quint8>(value[0]) | (static_cast<quint8>(value[1]) << 8);
       float tempCelsius = static_cast<float>(tempInt) * 0.01f;
       emit targetTempReceived(tempCelsius);
     }
@@ -250,10 +238,9 @@ void Service::onCharacteristicRead(const QLowEnergyCharacteristic &charInfo,
     }
   } else if (charInfo.uuid() == colorUuid) {
     if (value.size() >= 4) {
-      emit colorReceived(static_cast<quint8>(value[0]),
-                         static_cast<quint8>(value[1]),
-                         static_cast<quint8>(value[2]),
-                         static_cast<quint8>(value[3]));
+      emit colorReceived(
+          static_cast<quint8>(value[0]), static_cast<quint8>(value[1]),
+          static_cast<quint8>(value[2]), static_cast<quint8>(value[3]));
     }
   }
 }
