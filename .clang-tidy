@@ -1,0 +1,32 @@
+Checks: >
+  -*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  clazy-*,
+  -clang-diagnostic-error,
+  -modernize-use-trailing-return-type,
+  -readability-braces-around-statements,
+  -readability-identifier-naming,
+  -readability-uppercase-literal-suffix,
+  -readability-math-missing-parentheses,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -performance-enum-size,
+  -readability-redundant-access-specifiers
+
+WarningsAsErrors: '*'
+
+HeaderFilterRegex: '.*/(lib|app)/.*\.h$'
+
+CheckOptions:
+  - key: modernize-use-override.IgnoreDestructors
+    value: true
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: 'QString;QByteArray;QVariant;QStringList;QUrl;QColor;QFont;QRect;QSize;QPoint'

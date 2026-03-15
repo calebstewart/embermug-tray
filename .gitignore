@@ -41,7 +41,6 @@ result-*
 
 # Clang
 .clangd/
-.clang-tidy
 
 # OS
 .DS_Store

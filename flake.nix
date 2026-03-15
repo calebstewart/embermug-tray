@@ -31,6 +31,7 @@
               cmake
               ninja
               pkg-config
+              clazy
             ]
             ++ (with qt6; [
               qtbase
