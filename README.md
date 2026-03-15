@@ -8,6 +8,7 @@ A Linux system tray application for [Ember Mug](https://ember.com/) smart mugs. 
 - Bluetooth LE connectivity
 - Real-time temperature monitoring
 - Target temperature control
+- Desktop notifications for mug events (via D-Bus org.freedesktop.Notifications)
 
 ## Requirements
 
@@ -54,6 +55,16 @@ Enable the service in your home-manager configuration:
 ```
 
 This will install the application and set up a systemd user service that starts automatically with your graphical session.
+
+## Configuration
+
+The application uses QSettings for persistent configuration. On Linux, settings are stored in `~/.config/embermug-tray/embermug-tray.conf`.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `device.address` | (none) | Preferred mug Bluetooth address |
+| `notifications.batteryLow` | `20` | Battery percentage for low warning |
+| `notifications.batteryCritical` | `5` | Battery percentage for critical alert |
 
 ### Manual
 

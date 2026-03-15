@@ -38,6 +38,9 @@ private slots:
   void onMugReady();
   void onConnectionFailed(const QString &error);
   void onMugStateUpdated();
+  void onLiquidStateChanged();
+  void onBatteryStateChanged();
+  void onBatteryLevelChanged();
   void onRefreshTimer();
 
 private:
@@ -68,6 +71,10 @@ private:
   QString m_preferredName;
 
   std::array<std::array<QIcon, 4>, 2> m_iconCache; // [MugState][PlateState]
+
+  Ember::LiquidState m_previousLiquidState = Ember::LiquidState::Unknown;
+  Ember::BatteryState m_previousBatteryState = Ember::BatteryState::Unknown;
+  int m_previousBatteryLevel = -1;
 };
 
 #endif // TRAYCONTROLLER_H

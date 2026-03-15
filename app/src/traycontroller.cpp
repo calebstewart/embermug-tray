@@ -152,6 +152,14 @@ void TrayController::onConnected() {
 }
 
 void TrayController::onDisconnected() {
+  m_previousLiquidState = Ember::LiquidState::Unknown;
+  m_previousBatteryState = Ember::BatteryState::Unknown;
+  m_previousBatteryLevel = -1;
+
+  m_trayIcon->showMessage(QStringLiteral("Mug Disconnected"),
+                          QStringLiteral("Lost connection to Ember Mug."),
+                          QSystemTrayIcon::Warning);
+
   m_statusAction->setText(QStringLiteral("Status: Not connected"));
   m_tempAction->setText(QStringLiteral("Temp: --"));
   m_batteryAction->setText(QStringLiteral("Battery: --"));
@@ -176,6 +184,22 @@ void TrayController::onMugReady() {
 
   connect(mug, &Ember::Mug::stateUpdated, this,
           &TrayController::onMugStateUpdated);
+  connect(mug, &Ember::Mug::liquidStateChanged, this,
+          &TrayController::onLiquidStateChanged);
+  connect(mug, &Ember::Mug::batteryStateChanged, this,
+          &TrayController::onBatteryStateChanged);
+  connect(mug, &Ember::Mug::batteryLevelChanged, this,
+          &TrayController::onBatteryLevelChanged);
+
+  // Initialize previous state to avoid spurious notification on connect
+  m_previousLiquidState = mug->liquidState();
+  m_previousBatteryState = mug->batteryState();
+  m_previousBatteryLevel = mug->batteryLevel();
+
+  m_trayIcon->showMessage(
+      QStringLiteral("Mug Connected"),
+      QStringLiteral("Connected to %1.").arg(name),
+      QSystemTrayIcon::Information);
 
   // Enable target temp menu and build presets
   m_targetTempMenu->setEnabled(true);
@@ -196,6 +220,132 @@ void TrayController::onConnectionFailed(const QString &error) {
 void TrayController::onMugStateUpdated() {
   updateMugDisplay();
   rebuildTargetTempMenu();
+}
+
+void TrayController::onLiquidStateChanged() {
+  Ember::Mug *mug = m_manager->mug();
+  if (mug == nullptr) {
+    return;
+  }
+
+  Ember::LiquidState newState = mug->liquidState();
+  Ember::LiquidState oldState = m_previousLiquidState;
+  m_previousLiquidState = newState;
+
+  // Target temperature reached
+  if (newState == Ember::LiquidState::AtTarget &&
+      oldState != Ember::LiquidState::AtTarget) {
+    m_trayIcon->showMessage(
+        QStringLiteral("Target Temperature Reached"),
+        QStringLiteral("Your drink is now at the perfect temperature."),
+        QSystemTrayIcon::Information);
+    return;
+  }
+
+  // Heating started
+  if (newState == Ember::LiquidState::Heating &&
+      oldState != Ember::LiquidState::Heating) {
+    m_trayIcon->showMessage(
+        QStringLiteral("Heating Started"),
+        QStringLiteral("Your Ember Mug is now heating your drink."),
+        QSystemTrayIcon::Information);
+    return;
+  }
+
+  // Heating stopped (transition from Heating to something else)
+  if (oldState == Ember::LiquidState::Heating &&
+      newState != Ember::LiquidState::Heating &&
+      newState != Ember::LiquidState::AtTarget) {
+    QString body = (newState == Ember::LiquidState::Cooling)
+                       ? QStringLiteral("Your drink is cooling down.")
+                       : QStringLiteral("Heating has stopped.");
+    m_trayIcon->showMessage(QStringLiteral("Heating Stopped"), body,
+                            QSystemTrayIcon::Information);
+  }
+}
+
+void TrayController::onBatteryStateChanged() {
+  Ember::Mug *mug = m_manager->mug();
+  if (mug == nullptr) {
+    return;
+  }
+
+  Ember::BatteryState newState = mug->batteryState();
+  Ember::BatteryState oldState = m_previousBatteryState;
+  m_previousBatteryState = newState;
+
+  // Started charging
+  if (newState == Ember::BatteryState::Charging &&
+      oldState != Ember::BatteryState::Charging) {
+    m_trayIcon->showMessage(
+        QStringLiteral("Charging"),
+        QStringLiteral("Your Ember Mug is now charging."),
+        QSystemTrayIcon::Information);
+    return;
+  }
+
+  // Stopped charging (removed from charger)
+  if (oldState == Ember::BatteryState::Charging &&
+      newState == Ember::BatteryState::Discharging) {
+    m_trayIcon->showMessage(
+        QStringLiteral("Not Charging"),
+        QStringLiteral("Your Ember Mug was removed from the charger."),
+        QSystemTrayIcon::Information);
+  }
+}
+
+void TrayController::onBatteryLevelChanged() {
+  Ember::Mug *mug = m_manager->mug();
+  if (mug == nullptr) {
+    return;
+  }
+
+  int newLevel = mug->batteryLevel();
+  int oldLevel = m_previousBatteryLevel;
+  m_previousBatteryLevel = newLevel;
+
+  // Skip if we don't have a valid previous level
+  if (oldLevel < 0) {
+    return;
+  }
+
+  // Fully charged notification (when charging and reaches 100%)
+  if (newLevel == 100 && oldLevel < 100 &&
+      mug->batteryState() == Ember::BatteryState::Charging) {
+    m_trayIcon->showMessage(
+        QStringLiteral("Fully Charged"),
+        QStringLiteral("Your Ember Mug is fully charged."),
+        QSystemTrayIcon::Information);
+    return;
+  }
+
+  // Low battery warnings only when not charging
+  if (mug->batteryState() == Ember::BatteryState::Charging) {
+    return;
+  }
+
+  int criticalThreshold =
+      m_settings.value(QStringLiteral("notifications.batteryCritical"), 5)
+          .toInt();
+  int lowThreshold =
+      m_settings.value(QStringLiteral("notifications.batteryLow"), 20).toInt();
+
+  // Critical battery (crossed below critical threshold)
+  if (newLevel <= criticalThreshold && oldLevel > criticalThreshold) {
+    m_trayIcon->showMessage(
+        QStringLiteral("Battery Critical"),
+        QStringLiteral("Battery is at %1%. Charge your mug soon.").arg(newLevel),
+        QSystemTrayIcon::Critical);
+    return;
+  }
+
+  // Low battery (crossed below low threshold)
+  if (newLevel <= lowThreshold && oldLevel > lowThreshold) {
+    m_trayIcon->showMessage(
+        QStringLiteral("Battery Low"),
+        QStringLiteral("Battery is at %1%.").arg(newLevel),
+        QSystemTrayIcon::Warning);
+  }
 }
 
 void TrayController::onRefreshTimer() {

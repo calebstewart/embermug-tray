@@ -104,9 +104,10 @@ Disabled checks are Qt-specific accommodations (see `.clang-tidy`).
 
 ### Application Layer (`app/`)
 
-**TrayController**: System tray icon and context menu
+**TrayController**: System tray icon, context menu, and notifications
 - Dynamic icon rendering based on temperature and battery
 - Device selection and temperature preset menus
+- Desktop notifications via `QSystemTrayIcon::showMessage()` (D-Bus org.freedesktop.Notifications)
 
 **ConnectionManager**: BLE connection lifecycle
 - Manages `QLowEnergyController` connections
@@ -116,6 +117,30 @@ Disabled checks are Qt-specific accommodations (see `.clang-tidy`).
 **DeviceMonitor**: Bluetooth device discovery
 - Periodic scanning for Ember Mugs
 - Filtering by name prefix and service UUID
+
+## Notifications
+
+TrayController sends desktop notifications for the following events:
+
+| Event | Title | Severity |
+|-------|-------|----------|
+| Mug connected | "Mug Connected" | Information |
+| Mug disconnected | "Mug Disconnected" | Warning |
+| Target temperature reached | "Target Temperature Reached" | Information |
+| Heating started | "Heating Started" | Information |
+| Heating stopped | "Heating Stopped" | Information |
+| Started charging | "Charging" | Information |
+| Removed from charger | "Not Charging" | Information |
+| Battery fully charged | "Fully Charged" | Information |
+| Battery low | "Battery Low" | Warning |
+| Battery critical | "Battery Critical" | Critical |
+
+Battery threshold notifications are configurable via QSettings (read-only):
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `notifications.batteryLow` | `20` | Low battery warning threshold (%) |
+| `notifications.batteryCritical` | `5` | Critical battery alert threshold (%) |
 
 ## BLE Protocol Reference
 
