@@ -143,6 +143,10 @@ cmake --build build
 ctest --test-dir build
 ```
 
+## Credits
+
+The coffee mug icon is from [Zondicons](https://github.com/dukestreetstudio/zondicons) ([commit e5901f4](https://github.com/dukestreetstudio/zondicons/tree/e5901f49e88d05cfddd788161e9f6acd6af90cc7)), licensed under MIT.
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
